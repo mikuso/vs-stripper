@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using Cairo;
+using System;
+using System.Collections.Generic;
+using System.Xml.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -15,14 +18,14 @@ namespace Stripper
 
     public class StripperModSystem : ModSystem
     {
-
-
         private ICoreClientAPI capi;
         private ClientMain main;
 
         private ItemSlotCharacter headSlot;
         private ItemSlotCharacter bodySlot;
         private ItemSlotCharacter legSlot;
+        private ItemSlot handSlot;
+
         private StripState state = StripState.Unknown;
         private bool hookedOnHurt = false;
 
@@ -42,9 +45,109 @@ namespace Stripper
                 false
             );
             capi.Input.SetHotKeyHandler("stripper:swapout", SwapOut);
+
+            capi.Input.RegisterHotKey(
+                "stripper:nightvision",
+                Lang.Get("hotkey-stripper:nightvision"),
+                GlKeys.V,
+                HotkeyType.CharacterControls,
+                false,
+                false,
+                false
+            );
+            capi.Input.SetHotKeyHandler("stripper:nightvision", ToggleNightVision);
         }
 
-        void InitSlots()
+        ItemSlot FindNightVisionDevice(bool checkHead = true)
+        {
+            if (checkHead && headSlot?.Itemstack?.Item?.Code.Path == "nightvisiondevice")
+            {
+                return headSlot;
+            }
+
+            var nvHelm = FindItemSlot((invSlot) =>
+            {
+                return invSlot?.Itemstack?.Item?.Code.Path == "nightvisiondevice";
+            });
+
+            return nvHelm;
+        }
+
+        bool ToggleNightVision(KeyCombination _)
+        {
+            if (!InitSlots())
+            {
+                return false;
+            }
+
+            var nvHelm = FindNightVisionDevice();
+            if (nvHelm != null)
+            {
+                if (this.headSlot != nvHelm)
+                {
+                    // equip nightvision
+                    EquipIntoSlot(nvHelm, this.headSlot);
+                    return true;
+                } else
+                {
+                    // unequip night vision
+                    ClearSlot(this.headSlot);
+                    if (this.state == StripState.Equipped)
+                    {
+                        FindAndEquipArmourType(EnumCharacterDressType.ArmorHead, this.headSlot);
+                    }
+                    return true;
+                }
+            }
+
+            string[] lightClasses = { "BlockLantern", "BlockTorch" };
+            foreach (string lightClass in lightClasses)
+            {
+                var handLight = FindHandlight(lightClass);
+                if (handLight != null)
+                {
+                    if (this.handSlot != handLight)
+                    {
+                        // equip lantern
+                        EquipIntoSlot(handLight, this.handSlot);
+                        return true;
+                    }
+                    else
+                    {
+                        // unequip lantern
+                        ClearSlot(this.handSlot);
+                        return true;
+                    }
+                }
+            }
+
+            capi.ShowChatMessage(Lang.Get("stripper:nolight"));
+
+            return true;
+        }
+
+        ItemSlot FindHandlight(string lightClass, bool checkHand = true)
+        {
+            var handBlockClass = handSlot?.Itemstack?.Block?.Class;
+            if (handBlockClass != null)
+            {
+                if (checkHand && lightClass == handBlockClass)
+                {
+                    return handSlot;
+                }
+            }
+
+            var handLight = FindItemSlot((invSlot) =>
+            {
+                var blockClass = invSlot?.Itemstack?.Block?.Class;
+                if (blockClass == null) return false;
+                return lightClass == blockClass;
+            });
+
+            return handLight;
+        }
+
+        bool InitSlots()
         {
             if (!hookedOnHurt)
             {
@@ -52,14 +155,15 @@ namespace Stripper
                 hookedOnHurt = true;
             }
 
-            if (this.headSlot != null && this.bodySlot != null && this.legSlot != null)
+            if (this.headSlot != null && this.bodySlot != null && this.legSlot != null && this.handSlot != null)
             {
-                return;
+                return true;
             }
 
             var player = capi.World.Player;
             var inventories = player.InventoryManager.Inventories;
             var charInv = inventories["character-" + player.PlayerUID];
+            var hotbarInv = inventories["hotbar-" + player.PlayerUID];
 
             foreach (ItemSlotCharacter slot in charInv)
             {
@@ -78,11 +182,20 @@ namespace Stripper
                     this.legSlot = slot;
                 }
             }
+
+            foreach (ItemSlot slot in hotbarInv)
+            {
+                if (slot is ItemSlotOffhand)
+                {
+                    this.handSlot = slot;
+                }
+            }
+
+            return (this.headSlot != null && this.bodySlot != null && this.legSlot != null && this.handSlot != null);
         }
 
         int CountEquippedArmourPieces()
         {
-            InitSlots();
             var count = 0;
             if (this.headSlot?.Itemstack != null) count++;
             if (this.bodySlot?.Itemstack != null) count++;
@@ -97,6 +210,11 @@ namespace Stripper
 
         bool SwapOut(KeyCombination _)
         {
+            if (!InitSlots())
+            {
+                return false;
+            }
+
             var armourCount = CountEquippedArmourPieces();
 
             if (armourCount == 3)
@@ -162,8 +280,6 @@ namespace Stripper
 
         int FindAndEquipArmour()
         {
-            InitSlots();
-
             int equipped = 0;
 
             if (this.headSlot?.Itemstack == null)
@@ -193,7 +309,7 @@ namespace Stripper
             return equipped;
         }
 
-        bool FindAndEquipArmourType(EnumCharacterDressType type, ItemSlotCharacter chrSlot) 
+        ItemSlot FindItemSlot(System.Func<ItemSlot, bool> filter)
         {
             var player = capi.World.Player;
             var inventories = player.InventoryManager.Inventories;
@@ -204,32 +320,52 @@ namespace Stripper
             List<ItemSlot> seekSlots = new List<ItemSlot>();
             foreach (ItemSlot invSlot in hotbarInv)
             {
-                if (ItemSlotCharacter.IsDressType(invSlot.Itemstack, type))
+                if (filter(invSlot))
                 {
-                    return EquipIntoSlot(invSlot, chrSlot);
+                    return invSlot;
                 }
             }
             foreach (ItemSlot invSlot in backpackInv)
             {
-                if (ItemSlotCharacter.IsDressType(invSlot.Itemstack, type))
+                if (filter(invSlot))
                 {
-                    return EquipIntoSlot(invSlot, chrSlot);
+                    return invSlot;
                 }
             }
 
-            capi.ShowChatMessage(string.Format(Lang.Get("stripper:missingpiece"), type));
+            return null;
+        }
+
+        bool FindAndEquipArmourType(EnumCharacterDressType type, ItemSlotCharacter chrSlot) 
+        {
+            var invSlot = FindItemSlot(invSlot =>
+            {
+                return ItemSlotCharacter.IsDressType(invSlot.Itemstack, type) && invSlot.Itemstack?.Item?.Code.Path != "nightvisiondevice";
+            });
+
+            if (invSlot != null)
+            {
+                return EquipIntoSlot(invSlot, chrSlot);
+            }
+
             return false;
         }
 
-        bool EquipIntoSlot(ItemSlot srcSlot, ItemSlotCharacter destSlot)
+        bool EquipIntoSlot(ItemSlot srcSlot, ItemSlot destSlot)
         {
             if (srcSlot.Empty) return false;
+
+            if (!destSlot.Empty)
+            {
+                ClearSlot(destSlot);
+            }
+            
             var op = new ItemStackMoveOperation(
                 capi.World,
                 EnumMouseButton.Left,
                 EnumModifierKey.SHIFT,
                 EnumMergePriority.AutoMerge,
-                1
+                srcSlot.StackSize
             );
             
             var packet = capi.World.Player.InventoryManager.TryTransferTo(srcSlot, destSlot, ref op);

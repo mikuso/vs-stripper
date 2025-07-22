@@ -1,6 +1,7 @@
 {
   "hotkey-stripper:swapout": "[Stripper] Swapout Armour",
+  "hotkey-stripper:nightvision": "[Stripper] Toggle Night Vision",
   "stripper:stripped": "[Stripper] Stripped Armour.",
   "stripper:equipped": "[Stripper] Equipped Armour.",
-  "stripper:missingpiece": "[Stripper] Can't find any '{0}' to equip."
+  "stripper:nolight": "No light source available."
 }
