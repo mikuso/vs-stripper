@@ -1,0 +1,6 @@
+{
+  "hotkey-stripper:swapout": "[Stripper] Swapout Armour",
+  "stripper:stripped": "[Stripper] Stripped Armour.",
+  "stripper:equipped": "[Stripper] Equipped Armour.",
+  "stripper:missingpiece": "[Stripper] Can't find any '{0}' to equip."
+}
