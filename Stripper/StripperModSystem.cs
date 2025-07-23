@@ -205,7 +205,18 @@ namespace Stripper
 
         void OnHurt()
         {
-            FindAndEquipArmour();
+            // Ideally, we only care about damage that can be mitigated by armour, as per this server-side code:
+            // https://github.com/anegostudios/vssurvivalmod/blob/master/Systems/WearableStats.cs#L126
+            // However, the damage type and source doesn't seem to be shared with the client - only the raw damage number & knockback direction:
+            // https://github.com/anegostudios/vsapi/blob/master/Common/Entity/Entity.cs#L941
+
+            // So, instead we'll just check if the damage is more than 1hp before suiting up.
+
+            float damage = capi.World.Player.Entity.WatchedAttributes.GetFloat("onHurt");
+            if (damage > 1.0)
+            {
+                FindAndEquipArmour();
+            }
         }
 
         bool SwapOut(KeyCombination _)
