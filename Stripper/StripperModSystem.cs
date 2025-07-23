@@ -18,6 +18,7 @@ namespace Stripper
 
     public class StripperModSystem : ModSystem
     {
+        private StripperConfig config;
         private ICoreClientAPI capi;
         private ClientMain main;
 
@@ -35,6 +36,13 @@ namespace Stripper
             capi = api;
             main = (capi.World as ClientMain);
 
+            config = new StripperConfig(capi);
+
+            capi.Event.IsPlayerReady += Init;
+        }
+
+        private bool Init(ref EnumHandling handling)
+        {
             capi.Input.RegisterHotKey(
                 "stripper:swapout",
                 Lang.Get("hotkey-stripper:swapout"),
@@ -56,6 +64,9 @@ namespace Stripper
                 false
             );
             capi.Input.SetHotKeyHandler("stripper:nightvision", ToggleNightVision);
+
+            InitSlots();
+            return true;
         }
 
         ItemSlot FindNightVisionDevice(bool checkHead = true)
@@ -75,11 +86,6 @@ namespace Stripper
 
         bool ToggleNightVision(KeyCombination _)
         {
-            if (!InitSlots())
-            {
-                return false;
-            }
-
             var nvHelm = FindNightVisionDevice();
             if (nvHelm != null)
             {
@@ -205,6 +211,8 @@ namespace Stripper
 
         void OnHurt()
         {
+            if (!config.data.EquipArmourOnTakeDamage) return;
+
             // Ideally, we only care about damage that can be mitigated by armour, as per this server-side code:
             // https://github.com/anegostudios/vssurvivalmod/blob/master/Systems/WearableStats.cs#L126
             // However, the damage type and source doesn't seem to be shared with the client - only the raw damage number & knockback direction:
@@ -213,7 +221,7 @@ namespace Stripper
             // So, instead we'll just check if the damage is more than 1hp before suiting up.
 
             float damage = capi.World.Player.Entity.WatchedAttributes.GetFloat("onHurt");
-            if (damage > 1.0)
+            if (damage > config.data.EquipArmourOnDamageThreshold)
             {
                 FindAndEquipArmour();
             }
@@ -221,11 +229,6 @@ namespace Stripper
 
         bool SwapOut(KeyCombination _)
         {
-            if (!InitSlots())
-            {
-                return false;
-            }
-
             var armourCount = CountEquippedArmourPieces();
 
             if (armourCount == 3)
