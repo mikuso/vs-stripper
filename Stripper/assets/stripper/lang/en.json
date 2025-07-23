@@ -3,5 +3,5 @@
   "hotkey-stripper:nightvision": "[Stripper] Toggle Night Vision",
   "stripper:stripped": "[Stripper] Stripped Armour.",
   "stripper:equipped": "[Stripper] Equipped Armour.",
-  "stripper:nolight": "No light source available."
+  "stripper:nolight": "[Stripper] No light source available."
 }
