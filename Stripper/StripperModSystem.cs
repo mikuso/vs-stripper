@@ -41,6 +41,28 @@ namespace Stripper
             capi.Event.IsPlayerReady += Init;
         }
 
+        public ItemSlot FindEmptyItemSlot(ItemSlot compatibleItemSlot = null)
+        {
+            var player = capi.World.Player;
+            var inventories = player.InventoryManager.Inventories;
+            var backpackInv = inventories["backpack-" + player.PlayerUID];
+            var hotbarInv = inventories["hotbar-" + player.PlayerUID];
+            IInventory[] searchInvs = { backpackInv, hotbarInv };
+
+            foreach (var searchInv in searchInvs)
+            {
+                foreach (ItemSlot slot in searchInv)
+                {
+                    if (slot.Empty && (compatibleItemSlot == null || slot.CanHold(compatibleItemSlot)))
+                    {
+                        return slot;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private bool Init(ref EnumHandling handling)
         {
             capi.Input.RegisterHotKey(
@@ -277,18 +299,20 @@ namespace Stripper
         private bool ClearSlot(ItemSlot slot)
         {
             if (slot.Empty) return false;
+
+            var emptySlot = FindEmptyItemSlot(slot);
+            if (emptySlot == null) return false;
+            
             var op = new ItemStackMoveOperation(
                 capi.World,
                 EnumMouseButton.Left,
-                EnumModifierKey.SHIFT,
-                EnumMergePriority.AutoMerge
+                0,
+                EnumMergePriority.AutoMerge,
+                slot.StackSize
             );
-            var packets = capi.World.Player.InventoryManager.TryTransferAway(slot, ref op, true, true);
-            if (packets == null) return false;
-            foreach (object packet in packets)
-            {
-                capi.Network.SendPacketClient(packet);
-            }
+            var packet = capi.World.Player.InventoryManager.TryTransferTo(slot, emptySlot, ref op);
+            if (packet == null) return false;
+            capi.Network.SendPacketClient(packet);
             return true;
         }
 
