@@ -6,7 +6,7 @@
     "flamescape"
   ],
   "description": "A mod to quickly strip and re-equip armour.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "side": "Client",
   "dependencies": {
     "game": "1.20.12"
