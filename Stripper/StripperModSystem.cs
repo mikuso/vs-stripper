@@ -1,4 +1,4 @@
-using Cairo;
+﻿using Cairo;
 using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
@@ -75,7 +75,7 @@ namespace Stripper
                 true,
                 false
             );
-            capi.Input.SetHotKeyHandler("stripper:swapout", SwapOut);
+            capi.Input.SetHotKeyHandler("stripper:swapout", HandleSwapOutHotkey);
 
             capi.Input.RegisterHotKey(
                 "stripper:nightvision",
@@ -86,9 +86,36 @@ namespace Stripper
                 false,
                 false
             );
-            capi.Input.SetHotKeyHandler("stripper:nightvision", ToggleNightVision);
+            capi.Input.SetHotKeyHandler("stripper:nightvision", HandleToggleNightVisionHotkey);
+
+            capi.Input.RegisterHotKey(
+                "stripper:helmtoggle",
+                Lang.Get("hotkey-stripper:helmtoggle"),
+                GlKeys.Unknown,
+                HotkeyType.CharacterControls
+            );
+            capi.Input.SetHotKeyHandler("stripper:helmtoggle", HandleToggleHelmHotkey);
 
             InitSlots();
+            return true;
+        }
+
+        public bool HandleToggleHelmHotkey(KeyCombination _)
+        {
+            try
+            {
+                if (headSlot.Empty)
+                {
+                    FindAndEquipArmourType(EnumCharacterDressType.ArmorHead, this.headSlot);
+                }
+                else
+                {
+                    ClearSlot(this.headSlot, capi.World.Player.InventoryManager.ActiveHotbarSlot);
+                }
+            } catch (Exception e)
+            {
+                capi.ShowChatMessage("[Stripper Error]: " + e.Message);
+            }
             return true;
         }
 
@@ -107,51 +134,57 @@ namespace Stripper
             return nvHelm;
         }
 
-        bool ToggleNightVision(KeyCombination _)
+        bool HandleToggleNightVisionHotkey(KeyCombination _)
         {
-            var nvHelm = FindNightVisionDevice();
-            if (nvHelm != null)
-            {
-                if (this.headSlot != nvHelm)
-                {
-                    // equip nightvision
-                    EquipIntoSlot(nvHelm, this.headSlot);
-                    return true;
-                } else
-                {
-                    // unequip night vision
-                    ClearSlot(this.headSlot);
-                    if (this.state == StripState.Equipped)
-                    {
-                        FindAndEquipArmourType(EnumCharacterDressType.ArmorHead, this.headSlot);
-                    }
-                    return true;
-                }
-            }
+            try { 
 
-            string[] lightClasses = { "BlockLantern", "BlockTorch" };
-            foreach (string lightClass in lightClasses)
-            {
-                var handLight = FindHandlight(lightClass);
-                if (handLight != null)
+                var nvHelm = FindNightVisionDevice();
+                if (nvHelm != null)
                 {
-                    if (this.handSlot != handLight)
+                    if (this.headSlot != nvHelm)
                     {
-                        // equip lantern
-                        EquipIntoSlot(handLight, this.handSlot);
+                        // equip nightvision
+                        EquipIntoSlot(nvHelm, this.headSlot);
                         return true;
-                    }
-                    else
+                    } else
                     {
-                        // unequip lantern
-                        ClearSlot(this.handSlot);
+                        // unequip night vision
+                        ClearSlot(this.headSlot);
+                        if (this.state == StripState.Equipped)
+                        {
+                            FindAndEquipArmourType(EnumCharacterDressType.ArmorHead, this.headSlot);
+                        }
                         return true;
                     }
                 }
+
+                string[] lightClasses = { "BlockLantern", "BlockTorch" };
+                foreach (string lightClass in lightClasses)
+                {
+                    var handLight = FindHandlight(lightClass);
+                    if (handLight != null)
+                    {
+                        if (this.handSlot != handLight)
+                        {
+                            // equip lantern
+                            EquipIntoSlot(handLight, this.handSlot);
+                            return true;
+                        }
+                        else
+                        {
+                            // unequip lantern
+                            ClearSlot(this.handSlot);
+                            return true;
+                        }
+                    }
+                }
+
+                capi.ShowChatMessage(Lang.Get("stripper:nolight"));
             }
-
-            capi.ShowChatMessage(Lang.Get("stripper:nolight"));
-
+            catch (Exception e)
+            {
+                capi.ShowChatMessage("[Stripper Error]: " + e.Message);
+            }
             return true;
         }
 
@@ -260,28 +293,33 @@ namespace Stripper
             }
         }
 
-        bool SwapOut(KeyCombination _)
+        bool HandleSwapOutHotkey(KeyCombination _)
         {
-            var armourCount = CountEquippedArmourPieces();
+            try { 
+                var armourCount = CountEquippedArmourPieces();
 
-            if (armourCount == 3)
-            {
-                StripArmour(); 
-            } else if (armourCount == 0)
-            {
-                FindAndEquipArmour();
-            } else if (state == StripState.Equipped)
-            {
-                StripArmour();
-            } else if (state == StripState.Stripped)
-            {
-                FindAndEquipArmour();
-            } else
-            {
-                // safe default
-                FindAndEquipArmour();
+                if (armourCount == 3)
+                {
+                    StripArmour(); 
+                } else if (armourCount == 0)
+                {
+                    FindAndEquipArmour();
+                } else if (state == StripState.Equipped)
+                {
+                    StripArmour();
+                } else if (state == StripState.Stripped)
+                {
+                    FindAndEquipArmour();
+                } else
+                {
+                    // safe default
+                    FindAndEquipArmour();
+                }
             }
-
+            catch (Exception e)
+            {
+                capi.ShowChatMessage("[Stripper Error]: " + e.Message);
+            }
             return true;
         }
 
@@ -307,11 +345,11 @@ namespace Stripper
             capi.ShowChatMessage(Lang.Get("stripper:stripped"));
         }
 
-        private bool ClearSlot(ItemSlot slot)
+        private bool ClearSlot(ItemSlot slot, ItemSlot preferredSlot = null)
         {
             if (slot.Empty) return false;
 
-            var emptySlot = FindEmptyItemSlot(slot);
+            var emptySlot = (preferredSlot != null && preferredSlot.Empty) ? preferredSlot : FindEmptyItemSlot(slot);
             if (emptySlot == null) return false;
             
             var op = new ItemStackMoveOperation(

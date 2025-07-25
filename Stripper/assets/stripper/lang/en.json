@@ -1,6 +1,7 @@
 {
   "hotkey-stripper:swapout": "[Stripper] Swapout Armour",
   "hotkey-stripper:nightvision": "[Stripper] Toggle Night Vision",
+  "hotkey-stripper:helmtoggle": "[Stripper] Toggle Helm",
   "stripper:stripped": "[Stripper] Stripped Armour.",
   "stripper:equipped": "[Stripper] Equipped Armour.",
   "stripper:panic": "[Stripper] Panic! Equipping armour after receiving {0} damage.",
