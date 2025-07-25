@@ -3,5 +3,6 @@
   "hotkey-stripper:nightvision": "[Stripper] Toggle Night Vision",
   "stripper:stripped": "[Stripper] Stripped Armour.",
   "stripper:equipped": "[Stripper] Equipped Armour.",
+  "stripper:panic": "[Stripper] Panic! Equipping armour after receiving {0} damage.",
   "stripper:nolight": "[Stripper] No light source available."
 }

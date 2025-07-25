@@ -1,4 +1,4 @@
-﻿using Cairo;
+using Cairo;
 using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
@@ -29,6 +29,7 @@ namespace Stripper
 
         private StripState state = StripState.Unknown;
         private bool hookedOnHurt = false;
+        private int lastHurtCounter = 0;
 
         public override void StartClientSide(ICoreClientAPI api)
         {
@@ -179,6 +180,7 @@ namespace Stripper
         {
             if (!hookedOnHurt)
             {
+                lastHurtCounter = capi.World.Player.Entity.WatchedAttributes.GetInt("onHurtCounter");
                 capi.World.Player?.Entity?.WatchedAttributes.RegisterModifiedListener("onHurt", OnHurt);
                 hookedOnHurt = true;
             }
@@ -233,6 +235,14 @@ namespace Stripper
 
         void OnHurt()
         {
+            int onHurtCounter = capi.World.Player.Entity.WatchedAttributes.GetInt("onHurtCounter");
+            if (onHurtCounter == lastHurtCounter)
+            {
+                return;
+            }
+
+            lastHurtCounter = onHurtCounter;
+
             if (!config.data.EquipArmourOnTakeDamage) return;
 
             // Ideally, we only care about damage that can be mitigated by armour, as per this server-side code:
@@ -245,6 +255,7 @@ namespace Stripper
             float damage = capi.World.Player.Entity.WatchedAttributes.GetFloat("onHurt");
             if (damage > config.data.EquipArmourOnDamageThreshold)
             {
+                capi.ShowChatMessage(Lang.Get("stripper:panic", damage));
                 FindAndEquipArmour();
             }
         }
